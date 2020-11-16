@@ -1,0 +1,4 @@
+0.0.0	2020 Nov 15
+-------------------
+* Clone of https://sourceforge.net/p/stm32flash/code/ci/master/tree/ as of
+  this date
