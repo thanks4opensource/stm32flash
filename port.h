@@ -40,6 +40,7 @@ struct port_options {
 	const char *device;
 	serial_baud_t baudRate;
 	const char *serial_mode;
+	int no_setup;
 	int bus_addr;
 	int rx_frame_max;
 	int tx_frame_max;

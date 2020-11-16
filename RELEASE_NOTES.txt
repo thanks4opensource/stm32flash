@@ -1,3 +1,11 @@
+0.0.1	2020 Nov 15
+-------------------
+* Minor changes to main.c, port.h, and serial_posix.c to add "-N"
+  commandline option to not do tcsetattr()/tcgetattr() to set and
+  check baud rate, etc.
+
+
+
 0.0.0	2020 Nov 15
 -------------------
 * Clone of https://sourceforge.net/p/stm32flash/code/ci/master/tree/ as of

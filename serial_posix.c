@@ -86,7 +86,8 @@ static void serial_close(serial_t *h)
 static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 			       const serial_bits_t bits,
 			       const serial_parity_t parity,
-			       const serial_stopbit_t stopbit)
+			       const serial_stopbit_t stopbit,
+			       const int no_setup)
 {
 	speed_t	port_baud;
 	tcflag_t port_bits;
@@ -195,6 +196,11 @@ static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 	h->newtio.c_cc[VMIN] = 0;
 	h->newtio.c_cc[VTIME] = TERMIOS_TIMEOUT;	/* in units of 0.1 s */
 
+	if (no_setup) {
+		snprintf(h->setup_str, sizeof(h->setup_str), "? ???");
+		return PORT_ERR_OK;
+	}
+
 	/* set the settings */
 	serial_flush(h);
 	if (tcsetattr(h->fd, TCSANOW, &h->newtio) != 0)
@@ -244,7 +250,8 @@ static port_err_t serial_posix_open(struct port_interface *port,
 	if (serial_setup(h, ops->baudRate,
 			 serial_get_bits(ops->serial_mode),
 			 serial_get_parity(ops->serial_mode),
-			 serial_get_stopbit(ops->serial_mode)
+			 serial_get_stopbit(ops->serial_mode),
+			 ops->no_setup
 			) != PORT_ERR_OK) {
 		serial_close(h);
 		return PORT_ERR_UNKNOWN;

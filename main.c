@@ -56,6 +56,7 @@ struct port_options port_opts = {
 	.device			= NULL,
 	.baudRate		= SERIAL_BAUD_57600,
 	.serial_mode		= "8e1",
+	.no_setup		= 0,
 	.bus_addr		= 0,
 	.rx_frame_max		= STM32_MAX_RX_FRAME,
 	.tx_frame_max		= STM32_MAX_TX_FRAME,
@@ -667,7 +668,7 @@ int parse_options(int argc, char *argv[])
 	int c;
 	char *pLen;
 
-	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfcChuos:S:F:i:R")) != -1) {
+	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:NjkfcChuos:S:F:i:R")) != -1) {
 		switch(c) {
 			case 'a':
 				port_opts.bus_addr = strtoul(optarg, NULL, 0);
@@ -693,6 +694,10 @@ int parse_options(int argc, char *argv[])
 					return 1;
 				}
 				port_opts.serial_mode = optarg;
+				break;
+
+			case 'N':
+				port_opts.no_setup = 1;
 				break;
 
 			case 'r':
@@ -903,6 +908,7 @@ void show_help(char *name) {
 		"			*Baud rate must be kept the same as the first init*\n"
 		"			This is useful if the reset fails\n"
 		"	-R		Reset device at exit.\n"
+		"	-N		No serial port init (baud, etc).\n"
 		"	-i GPIO_string	GPIO sequence to enter/exit bootloader mode\n"
 		"			GPIO_string=[entry_seq][:[exit_seq]]\n"
 		"			sequence=[[-]signal]&|,[sequence]\n"
