@@ -1,18 +1,18 @@
 <h1 id="stm32flash">stm32flash</h1>
 
-<p>Fork of https://sourceforge.net/p/stm32flash/code/ci/master/tree/</p>
+<p>Fork of <a href="https://sourceforge.net/p/stm32flash/code/ci/master/tree/">https://sourceforge.net/p/stm32flash/code/ci/master/tree/</a></p>
 
 <ul>
 <li>minor enhancement to upstream code &#8230;</li>
-<li>to add support for opening /dev/pts/N tty device special file &#8230;</li>
-<li>connected to a &#8220;Blue Pill&#8221; STM32F103 USB device &#8230;</li>
-<li>running <a href="https://github.com/thanks4opensource/buck50">buck50</a> firmware &#8230;</li>
-<li>whose <a href="https://github.com/thanks4opensource/papoon_usb">papoon_usb</a> USB CDC-ACM library does not support changing baud rate, parity, bit size, stop bits, etc. &#8230;</li>
-<li>via USB setup packets &#8230;</li>
-<li>sent from a *NIX host via <code>tcsetattr()</code> library calls &#8230;</li>
-<li>thus causing <code>stm32flash</code> to error exit when <code>tcsetattr()</code> and/or <code>tcgetattr()</code> fail.</li>
+<li>to add support for opening <code>/dev/pts/&lt;N&gt;</code> pty (pseudo-tty) device special files &#8230;</li>
+<li>created by <a href="https://github.com/thanks4opensource/buck50/blob/master/build/buck50.py">buck50.py</a> &#8230;</li>
+<li>connected to a &#8220;Blue Pill&#8221; STM32F103 USB device running <a href="https://github.com/thanks4opensource/buck50">buck50</a> firmware &#8230;</li>
+<li>connected via UART TX/RX to device being flashed &#8230;</li>
+<li>because pty device files do not support changing baud rate, parity, bit size, stop bits, etc. &#8230;</li>
+<li>as commanded by <code>stm32flash</code> via <code>tcsetattr()</code> library calls &#8230;</li>
+<li>thus <code>stm32flash</code> exits with error.</li>
 </ul>
 
-<p>Fork adds a new <code>-N</code> commandline option to bypass <code>tcsetattr()</code>/<code>tcgetattr()</code> in <code>serial_posix.c:serial_setup()</code>.</p>
+<p>Fork checks for &#8220;/dev/pts/&#8221; in <code>stm32flash [tty_device]</code> commandline argument and bypasses the <code>tcsetattr()</code> call. Also adds explicit <code>-N</code> commandline to force bypass regardless of <code>[tty_device]</code> name.</p>
 
-<p>Baud rate, etc. is instead set using <a href="https://github.com/thanks4opensource/buck50/blob/master/build/buck50.py">buck50.py</a> user interface before invoking <code>stm32flash</code>.</p>
+<p>When used with buck50 firmware, baud rate, etc. must be set via the <code>buck50.py</code> user interface prior to invoking <code>stm32flash</code>.</p>
