@@ -1,6 +1,19 @@
 stm32flash
 ==========
 
+December 7, 2022 update:
+
+- Code describe below (moved to branch v0.5_merge_request_15) is
+  deprecated.
+- Current v0.7 code at 
+  <https://sourceforge.net/p/stm32flash/code/ci/master/tree/> supports
+  "-b 0" flag with same functionality as branch's "-N".
+- This GitHub repo's master branch updated to current v0.7 (commit
+  [553016] as of this date/time), but does not have full git commit
+  history and may become out-of-date.
+- Please instead use most recent v0.7 (or later) from SourceForge
+  repo, or equivalent distro binaries.
+
 Fork of <https://sourceforge.net/p/stm32flash/code/ci/master/tree/>
 
 * minor enhancement to upstream code ...

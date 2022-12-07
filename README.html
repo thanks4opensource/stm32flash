@@ -1,18 +1,33 @@
-<h1 id="stm32flash">stm32flash</h1>
+<h1>stm32flash</h1>
+
+<p>December 7, 2022 update:</p>
+
+<ul>
+<li>Code describe below (moved to branch v0.5_merge_request_15) is
+deprecated.</li>
+<li>Current v0.7 code at
+<a href="https://sourceforge.net/p/stm32flash/code/ci/master/tree/">https://sourceforge.net/p/stm32flash/code/ci/master/tree/</a> supports
+&quot;-b 0&quot; flag with same functionality as branch's &quot;-N&quot;.</li>
+<li>This GitHub repo's master branch updated to current v0.7 (commit
+[553016] as of this date/time), but does not have full git commit
+history and may become out-of-date.</li>
+<li>Please instead use most recent v0.7 (or later) from SourceForge
+repo, or equivalent distro binaries.</li>
+</ul>
 
 <p>Fork of <a href="https://sourceforge.net/p/stm32flash/code/ci/master/tree/">https://sourceforge.net/p/stm32flash/code/ci/master/tree/</a></p>
 
 <ul>
-<li>minor enhancement to upstream code &#8230;</li>
-<li>to add support for opening <code>/dev/pts/&lt;N&gt;</code> pty (pseudo-tty) device special files &#8230;</li>
-<li>created by <a href="https://github.com/thanks4opensource/buck50/blob/master/build/buck50.py">buck50.py</a> &#8230;</li>
-<li>connected to a &#8220;Blue Pill&#8221; STM32F103 USB device running <a href="https://github.com/thanks4opensource/buck50">buck50</a> firmware &#8230;</li>
-<li>connected via UART TX/RX to device being flashed &#8230;</li>
-<li>because pty device files do not support changing baud rate, parity, bit size, stop bits, etc. &#8230;</li>
-<li>as commanded by <code>stm32flash</code> via <code>tcsetattr()</code> library calls &#8230;</li>
+<li>minor enhancement to upstream code ...</li>
+<li>to add support for opening <code>/dev/pts/&lt;N&gt;</code> pty (pseudo-tty) device special files ...</li>
+<li>created by <a href="https://github.com/thanks4opensource/buck50/blob/master/build/buck50.py">buck50.py</a> ...</li>
+<li>connected to a &quot;Blue Pill&quot; STM32F103 USB device running <a href="https://github.com/thanks4opensource/buck50">buck50</a> firmware ...</li>
+<li>connected via UART TX/RX to device being flashed ...</li>
+<li>because pty device files do not support changing baud rate, parity, bit size, stop bits, etc. ...</li>
+<li>as commanded by <code>stm32flash</code> via <code>tcsetattr()</code> library calls ...</li>
 <li>thus <code>stm32flash</code> exits with error.</li>
 </ul>
 
-<p>Fork checks for &#8220;/dev/pts/&#8221; in <code>stm32flash [tty_device]</code> commandline argument and bypasses the <code>tcsetattr()</code> call. Also adds explicit <code>-N</code> commandline to force bypass regardless of <code>[tty_device]</code> name.</p>
+<p>Fork checks for &quot;/dev/pts/&quot; in <code>stm32flash [tty_device]</code> commandline argument and bypasses the <code>tcsetattr()</code> call. Also adds explicit <code>-N</code> commandline to force bypass regardless of <code>[tty_device]</code> name.</p>
 
 <p>When used with buck50 firmware, baud rate, etc. must be set via the <code>buck50.py</code> user interface prior to invoking <code>stm32flash</code>.</p>
