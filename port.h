@@ -25,6 +25,7 @@ typedef enum {
 	PORT_ERR_OK = 0,
 	PORT_ERR_NODEV,		/* No such device */
 	PORT_ERR_TIMEDOUT,	/* Operation timed out */
+	PORT_ERR_BAUD,		/* Unsupported baud rate */
 	PORT_ERR_UNKNOWN,
 } port_err_t;
 
@@ -34,13 +35,13 @@ typedef enum {
 #define PORT_CMD_INIT	(1 << 2)	/* use INIT cmd to autodetect speed */
 #define PORT_RETRY	(1 << 3)	/* allowed read() retry after timeout */
 #define PORT_STRETCH_W	(1 << 4)	/* warning for no-stretching commands */
+#define PORT_NPAG_CSUM	(1 << 5)	/* checksum after number of pages to erase */
 
 /* all options and flags used to open and configure an interface */
 struct port_options {
 	const char *device;
 	serial_baud_t baudRate;
 	const char *serial_mode;
-	int no_setup;
 	int bus_addr;
 	int rx_frame_max;
 	int tx_frame_max;

@@ -29,6 +29,11 @@
 #include <stdio.h>
 #include <sys/file.h>
 
+/* To detect BSD for baud rate encoding */
+#if defined(__unix__) || defined(__UNIX__) || (defined(__APPLE__) && defined(__MACH__))
+#  include <sys/param.h>
+#endif
+
 #include "serial.h"
 #include "port.h"
 
@@ -105,6 +110,20 @@ static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 		case SERIAL_BAUD_57600:   port_baud = B57600; break;
 		case SERIAL_BAUD_115200:  port_baud = B115200; break;
 		case SERIAL_BAUD_230400:  port_baud = B230400; break;
+#ifdef BSD
+		case SERIAL_BAUD_460800:  port_baud = 460800; break;
+		case SERIAL_BAUD_500000:  port_baud = 500000; break;
+		case SERIAL_BAUD_576000:  port_baud = 576000; break;
+		case SERIAL_BAUD_921600:  port_baud = 921600; break;
+		case SERIAL_BAUD_1000000: port_baud = 1000000; break;
+		case SERIAL_BAUD_1152000: port_baud = 1152000; break;
+		case SERIAL_BAUD_1500000: port_baud = 1500000; break;
+		case SERIAL_BAUD_2000000: port_baud = 2000000; break;
+		case SERIAL_BAUD_2500000: port_baud = 2500000; break;
+		case SERIAL_BAUD_3000000: port_baud = 3000000; break;
+		case SERIAL_BAUD_3500000: port_baud = 3500000; break;
+		case SERIAL_BAUD_4000000: port_baud = 4000000; break;
+#else
 #ifdef B460800
 		case SERIAL_BAUD_460800:  port_baud = B460800; break;
 #endif /* B460800 */
@@ -120,16 +139,32 @@ static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 #ifdef B1000000
 		case SERIAL_BAUD_1000000: port_baud = B1000000; break;
 #endif /* B1000000 */
+#ifdef B1152000
+		case SERIAL_BAUD_1152000: port_baud = B1152000; break;
+#endif /* B1152000 */
 #ifdef B1500000
 		case SERIAL_BAUD_1500000: port_baud = B1500000; break;
 #endif /* B1500000 */
 #ifdef B2000000
 		case SERIAL_BAUD_2000000: port_baud = B2000000; break;
 #endif /* B2000000 */
+#ifdef B2500000
+		case SERIAL_BAUD_2500000: port_baud = B2500000; break;
+#endif /* B2500000 */
+#ifdef B3000000
+		case SERIAL_BAUD_3000000: port_baud = B3000000; break;
+#endif /* B3000000 */
+#ifdef B3500000
+		case SERIAL_BAUD_3500000: port_baud = B3500000; break;
+#endif /* B3500000 */
+#ifdef B4000000
+		case SERIAL_BAUD_4000000: port_baud = B4000000; break;
+#endif /* B4000000 */
+#endif /* BSD */
 
 		case SERIAL_BAUD_INVALID:
 		default:
-			return PORT_ERR_UNKNOWN;
+			return PORT_ERR_BAUD;
 	}
 
 	switch (bits) {
@@ -176,13 +211,19 @@ static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 	h->newtio.c_cflag &= ~(CSIZE | CRTSCTS);
 #endif
 	h->newtio.c_cflag &= ~(CSIZE | CRTSCTS);
+	h->newtio.c_cflag &= ~(PARENB | PARODD);
+	h->newtio.c_cflag &= ~CSTOPB;
 	h->newtio.c_iflag &= ~(IXON | IXOFF | IXANY | IGNPAR);
 	h->newtio.c_lflag &= ~(ECHOK | ECHOCTL | ECHOKE);
 	h->newtio.c_oflag &= ~(OPOST | ONLCR);
 
 	/* setup the new settings */
-	cfsetispeed(&h->newtio, port_baud);
-	cfsetospeed(&h->newtio, port_baud);
+	if (cfsetispeed(&h->newtio, port_baud) ||
+	    cfsetospeed(&h->newtio, port_baud)) {
+		fprintf(stderr, "Failed to specify baud rate\n");
+		return PORT_ERR_BAUD;
+	}
+
 	h->newtio.c_cflag |=
 		port_parity	|
 		port_bits	|
@@ -197,16 +238,27 @@ static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 
 	/* set the settings */
 	serial_flush(h);
-	if (tcsetattr(h->fd, TCSANOW, &h->newtio) != 0)
+	if (tcsetattr(h->fd, TCSANOW, &h->newtio) != 0) {
+		fprintf(stderr, "Error: Failed to apply settings\n");
 		return PORT_ERR_UNKNOWN;
+	}
 
 	/* confirm they were set */
 	tcgetattr(h->fd, &settings);
+
+	if (cfgetispeed(&settings) != port_baud ||
+	    cfgetospeed(&settings) != port_baud) {
+		fprintf(stderr, "Failed to set baud rate\n");
+		return PORT_ERR_BAUD;
+	}
+
 	if (settings.c_iflag != h->newtio.c_iflag ||
 	    settings.c_oflag != h->newtio.c_oflag ||
 	    settings.c_cflag != h->newtio.c_cflag ||
-	    settings.c_lflag != h->newtio.c_lflag)
+	    settings.c_lflag != h->newtio.c_lflag) {
+		fprintf(stderr, "Failed to set terminal flags\n");
 		return PORT_ERR_UNKNOWN;
+	}
 
 	snprintf(h->setup_str, sizeof(h->setup_str), "%u %d%c%d",
 		 serial_get_baud_int(baud),
@@ -220,6 +272,16 @@ static port_err_t serial_posix_open(struct port_interface *port,
 				    struct port_options *ops)
 {
 	serial_t *h;
+	port_err_t ret;
+
+	/* user takes care of all port setup */
+	if (ops->baudRate == SERIAL_BAUD_KEEP) {
+		h = serial_open(ops->device);
+		if (h == NULL)
+			return PORT_ERR_UNKNOWN;
+		port->private = h;
+		return PORT_ERR_OK;
+	}
 
 	/* 1. check options */
 	if (ops->baudRate == SERIAL_BAUD_INVALID)
@@ -241,15 +303,13 @@ static port_err_t serial_posix_open(struct port_interface *port,
 		fprintf(stderr, "Warning: Not a tty: %s\n", ops->device);
 
 	/* 4. set options */
-	if (strstr(ttyname(h->fd), "/dev/pts/") || ops->no_setup )
-		snprintf(h->setup_str, sizeof(h->setup_str), "? ???");
-	else if (serial_setup(h, ops->baudRate,
-			      serial_get_bits(ops->serial_mode),
-			      serial_get_parity(ops->serial_mode),
-			      serial_get_stopbit(ops->serial_mode)
-			      ) != PORT_ERR_OK) {
+	ret = serial_setup(h, ops->baudRate,
+			   serial_get_bits(ops->serial_mode),
+			   serial_get_parity(ops->serial_mode),
+			   serial_get_stopbit(ops->serial_mode));
+	if (ret != PORT_ERR_OK) {
 		serial_close(h);
-		return PORT_ERR_UNKNOWN;
+		return ret;
 	}
 
 	port->private = h;

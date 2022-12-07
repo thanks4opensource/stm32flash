@@ -84,15 +84,14 @@ static serial_t *serial_open(const char *device)
 	GetCommState(h->fd, &h->oldtio); /* Retrieve port parameters */
 	GetCommState(h->fd, &h->newtio); /* Retrieve port parameters */
 
-	/* PurgeComm(h->fd, PURGE_RXABORT | PURGE_TXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR); */
+	/* PurgeComm(h->fd, PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR); */
 
 	return h;
 }
 
 static void serial_flush(const serial_t __unused *h)
 {
-	/* We shouldn't need to flush in non-overlapping (blocking) mode */
-	/* tcflush(h->fd, TCIFLUSH); */
+	PurgeComm(h->fd, PURGE_RXCLEAR);
 }
 
 static void serial_close(serial_t *h)
@@ -111,12 +110,13 @@ static port_err_t serial_setup(serial_t *h,
 {
 	switch (baud) {
 		case SERIAL_BAUD_1200:    h->newtio.BaudRate = CBR_1200; break;
-		/* case SERIAL_BAUD_1800: h->newtio.BaudRate = CBR_1800; break; */
 		case SERIAL_BAUD_2400:    h->newtio.BaudRate = CBR_2400; break;
 		case SERIAL_BAUD_4800:    h->newtio.BaudRate = CBR_4800; break;
 		case SERIAL_BAUD_9600:    h->newtio.BaudRate = CBR_9600; break;
+		case SERIAL_BAUD_14400:   h->newtio.BaudRate = CBR_14400; break;
 		case SERIAL_BAUD_19200:   h->newtio.BaudRate = CBR_19200; break;
 		case SERIAL_BAUD_38400:   h->newtio.BaudRate = CBR_38400; break;
+		case SERIAL_BAUD_56000:   h->newtio.BaudRate = CBR_56000; break;
 		case SERIAL_BAUD_57600:   h->newtio.BaudRate = CBR_57600; break;
 		case SERIAL_BAUD_115200:  h->newtio.BaudRate = CBR_115200; break;
 		case SERIAL_BAUD_128000:  h->newtio.BaudRate = CBR_128000; break;
@@ -128,12 +128,17 @@ static port_err_t serial_setup(serial_t *h,
 		case SERIAL_BAUD_576000:  h->newtio.BaudRate = 576000; break;
 		case SERIAL_BAUD_921600:  h->newtio.BaudRate = 921600; break;
 		case SERIAL_BAUD_1000000: h->newtio.BaudRate = 1000000; break;
+		case SERIAL_BAUD_1152000: h->newtio.BaudRate = 1152000; break;
 		case SERIAL_BAUD_1500000: h->newtio.BaudRate = 1500000; break;
 		case SERIAL_BAUD_2000000: h->newtio.BaudRate = 2000000; break;
-		case SERIAL_BAUD_INVALID:
+		case SERIAL_BAUD_2500000: h->newtio.BaudRate = 2500000; break;
+		case SERIAL_BAUD_3000000: h->newtio.BaudRate = 3000000; break;
+		case SERIAL_BAUD_3500000: h->newtio.BaudRate = 3500000; break;
+		case SERIAL_BAUD_4000000: h->newtio.BaudRate = 4000000; break;
 
+		case SERIAL_BAUD_INVALID:
 		default:
-			return PORT_ERR_UNKNOWN;
+			return PORT_ERR_BAUD;
 	}
 
 	switch (bits) {
@@ -194,6 +199,16 @@ static port_err_t serial_w32_open(struct port_interface *port,
 				  struct port_options *ops)
 {
 	serial_t *h;
+	port_err_t ret;
+
+	/* user takes care of all port setup */
+	if (ops->baudRate == SERIAL_BAUD_KEEP) {
+		h = serial_open(ops->device);
+		if (h == NULL)
+			return PORT_ERR_UNKNOWN;
+		port->private = h;
+		return PORT_ERR_OK;
+	}
 
 	/* 1. check device name match */
 	if (!(!strncmp(ops->device, "COM", 3) && isdigit(ops->device[3]))
@@ -203,7 +218,7 @@ static port_err_t serial_w32_open(struct port_interface *port,
 
 	/* 2. check options */
 	if (ops->baudRate == SERIAL_BAUD_INVALID)
-		return PORT_ERR_UNKNOWN;
+		return PORT_ERR_BAUD;
 	if (serial_get_bits(ops->serial_mode) == SERIAL_BITS_INVALID)
 		return PORT_ERR_UNKNOWN;
 	if (serial_get_parity(ops->serial_mode) == SERIAL_PARITY_INVALID)
@@ -217,13 +232,13 @@ static port_err_t serial_w32_open(struct port_interface *port,
 		return PORT_ERR_UNKNOWN;
 
 	/* 4. set options */
-	if (serial_setup(h, ops->baudRate,
-	    serial_get_bits(ops->serial_mode),
-	    serial_get_parity(ops->serial_mode),
-	    serial_get_stopbit(ops->serial_mode)
-	   ) != PORT_ERR_OK) {
+	ret = serial_setup(h, ops->baudRate,
+			   serial_get_bits(ops->serial_mode),
+			   serial_get_parity(ops->serial_mode),
+			   serial_get_stopbit(ops->serial_mode));
+	if (ret != PORT_ERR_OK) {
 		serial_close(h);
-		return PORT_ERR_UNKNOWN;
+		return ret;
 	}
 
 	port->private = h;

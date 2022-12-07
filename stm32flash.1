@@ -1,4 +1,4 @@
-.TH STM32FLASH 1 "2015\-11\-25" STM32FLASH "User command"
+.TH "STM32FLASH" "1" "March 2022" stm32flash "User command"
 .SH NAME
 stm32flash \- flashing utility for STM32 through UART or I2C
 .SH SYNOPSIS
@@ -116,9 +116,9 @@ Erase only.
 
 .TP
 .BI "\-e" " num"
-Specify to erase only
+Specify to erase
 .I num
-pages before writing the flash. Default is to erase the whole flash. With
+pages before writing the flash. Default is to erase the necessary pages based on the file content size and/or parameters provided with the -S option, or the whole flash if this cannot be determined. With
 .B \-e 0
 the flash would not be erased.
 
@@ -245,7 +245,7 @@ the '&' delimiter adds no delay.
 An empty signal, thus repeated ',' delimiters, can be used to insert larger
 delays in multiples of 100 ms.
 E.g. "rts,,,,\-dtr" will set RTS, then wait 400 ms, then reset DTR.
-"rts&\-dtr" will set RTS and reset DTR without delay. You can use ',' delimiters 
+"rts&\-dtr" will set RTS and reset DTR without delay. You can use ',' delimiters
 alone to simply add a delay between opening port and starting to flash.
 .DP
 .P
@@ -255,7 +255,7 @@ If -R is specified, but no exit sequence, a software-triggered reset will
 be performed.
 
 .PD 0
-As example, let's suppose the following connection between host and STM32:
+As an example, let's suppose the following connection between host and STM32:
 .IP \(bu 2
 host GPIO_3 connected to reset pin of STM32;
 .IP \(bu 2
@@ -284,7 +284,7 @@ STM32W uses pad PA5 to select boot mode; if during reset PA5 is "low" then
 STM32W will enter in bootloader mode; if PA5 is "high" it will execute the
 program in flash.
 
-As example, supposing GPIO_3 connected to PA5 and GPIO_2 to STM32W's reset.
+As an example, suppose GPIO_3 is connected to PA5 and GPIO_2 to STM32W's reset.
 The command:
 .PD 0
 .RS
@@ -296,9 +296,9 @@ entry sequence: GPIO_3=low, GPIO_2=low, 100 ms delay, GPIO_2=high
 .IP \(bu 2
 exit sequence: GPIO_3=high, GPIO_2=low, 300 ms delay, GPIO_2=high
 .PD
+.P
 
-
-GPIO sequence to bring delays on start after port opening.
+Another example, introducing a delay after port opening.
 The command:
 .PD 0
 .RS
@@ -367,12 +367,13 @@ done through software package SRecord.
 The original software package
 .B stm32flash
 is written by
-.I Geoffrey McRae <geoff@spacevs.com>
+.I Geoffrey McRae
 and is since 2012 maintained by
-.IR "Tormod Volden <debian.tormod@gmail.com>" .
+.I Tormod Volden.
+See AUTHORS file in source code for more contributors.
 
 Man page and extension to STM32W and I2C are written by
-.IR "Antonio Borneo <borneo.antonio@gmail.com>" .
+.I Antonio Borneo.
 
 Please report any bugs at the project homepage
 http://stm32flash.sourceforge.net .

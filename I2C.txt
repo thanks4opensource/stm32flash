@@ -20,8 +20,19 @@ for details.
 
 In the market there are several USB-to-I2C dongles; most of them are not
 supported by kernel drivers. Manufacturer provide proprietary userspace
-libraries using not standardized API.
-These API and dongles could be supported in feature versions.
+libraries using not standardized API. Such API and dongles could in
+principle be supported in feature versions of stm32flash.
+
+The open-hardware i2c-tiny-usb device and its reimplementation on the
+STM32, the i2c-star, are fully supported by the Linux kernel.
+- https://www.fischl.de/i2c-mp-usb/
+- https://github.com/daniel-thompson/i2c-star
+
+There is also the I2CDriver which has open-source drivers and
+available design files. Although there is no kernel driver,
+there is a userspace compatibility interface available.
+- https://github.com/jamesbowman/i2cdriver
+- https://github.com/mbenkmann/i2cdriver/tree/master/c/linux
 
 There are currently 3 versions of STM32 bootloader for I2C communications:
 - v1.0 using I2C clock stretching synchronization between host and STM32;
@@ -56,6 +67,8 @@ and you can read the files in Linux source code
 About bootloader v1.0
 ==========================================================================
 
+(Used on F0, F3 and F4 up to STM32F401xB(C) devices)
+
 Version v1.0 can have issues with some I2C controllers due to use of clock
 stretching during commands that require long operations, like flash erase
 and programming.
@@ -79,7 +92,8 @@ way to handle the timeout.
 
 In my case I'm using the I2C controller integrated in the VGA port of my
 laptop HP EliteBook 8460p. I built the 0.25$ VGA-to-I2C adapter reported in
-	http://www.paintyourdragon.com/?p=43
+https://web.archive.org/web/20160506154718/http://www.paintyourdragon.com/?p=43
+
 To change the timeout of the I2C controller I had to modify the kernel file
 	drivers/gpu/drm/radeon/radeon_i2c.c
 line 969

@@ -30,6 +30,8 @@
 #include "../compiler.h"
 #include "../utils.h"
 
+extern FILE *diag;
+
 typedef struct {
 	size_t		data_len, offset;
 	uint8_t		*data;
@@ -85,6 +87,11 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 			switch(type) {
 				/* data record */
 				case 0:
+					if (st->data_len == 0) {
+						st->base |= address;
+						last_address = address;
+					}
+
 					c = address - last_address;
 					st->data = realloc(st->data, st->data_len + c + reclen);
 
@@ -176,10 +183,17 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 					}
 
 					/* if there is a gap, enlarge and fill with 0xff */
-					unsigned int len = base - st->base;
+					size_t len = base - st->base;
 					if (len > st->data_len) {
+						size_t gap = len - st->data_len;
+						if (gap > 16384) /* arbitrary limit for warning */
+							fprintf(diag, "Warning: Filling gap of %zu bytes at 0x%08zx\n", gap, st->base + st->data_len);
 						st->data = realloc(st->data, len);
-						memset(&st->data[st->data_len], 0xff, len - st->data_len);
+						if (st->data == NULL) {
+							fprintf(diag, "Error: Cannot reallocate memory\n");
+							return PARSER_ERR_SYSTEM;
+						}
+						memset(&st->data[st->data_len], 0xff, gap);
 						st->data_len = len;
 					}
 					break;
@@ -196,6 +210,11 @@ parser_err_t hex_close(void *storage) {
 	if (st) free(st->data);
 	free(st);
 	return PARSER_ERR_OK;
+}
+
+unsigned int hex_base(void *storage) {
+	hex_t *st = storage;
+	return st->base;
 }
 
 unsigned int hex_size(void *storage) {
@@ -224,6 +243,7 @@ parser_t PARSER_HEX = {
 	hex_init,
 	hex_open,
 	hex_close,
+	hex_base,
 	hex_size,
 	hex_read,
 	hex_write

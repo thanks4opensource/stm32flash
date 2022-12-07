@@ -45,6 +45,8 @@ port_err_t port_open(struct port_options *ops, struct port_interface **outport)
 			continue;
 		if (ret == PORT_ERR_OK)
 			break;
+		if (ret == PORT_ERR_BAUD)
+			fprintf(stderr, "Unsupported baud rate\n");
 		fprintf(stderr, "Error probing interface \"%s\"\n",
 			(*port)->name);
 	}

@@ -176,11 +176,14 @@ int flash_addr_to_page_ceil(uint32_t addr);
 
 static void stm32_warn_stretching(const char *f)
 {
-	fprintf(stderr, "Attention !!!\n");
-	fprintf(stderr, "\tThis %s error could be caused by your I2C\n", f);
-	fprintf(stderr, "\tcontroller not accepting \"clock stretching\"\n");
-	fprintf(stderr, "\tas required by bootloader.\n");
-	fprintf(stderr, "\tCheck \"I2C.txt\" in stm32flash source code.\n");
+	fprintf(stderr, "Attention !\n");
+	fprintf(stderr, "\tThe %s operation was possibly executed, however a driver\n", f);
+	fprintf(stderr, "\ttimeout might have occured while waiting for acknowledgment\n");
+	fprintf(stderr, "\tof finished operation.\n");
+	fprintf(stderr, "\tThis can be caused by your I2C controller not accepting\n");
+	fprintf(stderr, "\t\"clock stretching\" as required by the bootloader,\n");
+	fprintf(stderr, "\tor timing out too early.\n");
+	fprintf(stderr, "\tPlease see \"I2C.txt\" in the stm32flash source code.\n");
 }
 
 static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
@@ -391,13 +394,17 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 	 */
 	p_err = port->write(port, &cmd, 1);
 	if (p_err != PORT_ERR_OK) {
-		fprintf(stderr, "Failed to send init to device\n");
+		fprintf(stderr, "Failed to resend init to device\n");
 		return STM32_ERR_UNKNOWN;
 	}
 	p_err = port->read(port, &byte, 1);
 	if (p_err == PORT_ERR_OK && byte == STM32_NACK)
 		return STM32_ERR_OK;
-	fprintf(stderr, "Failed to init device.\n");
+	if (p_err == PORT_ERR_TIMEDOUT) {
+		fprintf(stderr, "Failed to init device, timeout.\n");
+		return STM32_ERR_UNKNOWN;
+	}
+	fprintf(stderr, "Failed to init device after retry.\n");
 	return STM32_ERR_UNKNOWN;
 }
 
@@ -431,6 +438,14 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	len = (port->flags & PORT_GVR_ETX) ? 3 : 1;
 	if (port->read(port, buf, len) != PORT_ERR_OK)
 		return NULL;
+
+	/* STM32L412xx/422xx bootloader V13.1 sends an extra ACK after init */
+	if ((port->flags & PORT_GVR_ETX) && buf[0] == STM32_ACK && buf[1] == 0x31) {
+		buf[0] = buf[1];
+		buf[1] = buf[2];
+		port->read(port, &buf[2], 1);
+	}
+
 	stm->version = buf[0];
 	stm->option1 = (port->flags & PORT_GVR_ETX) ? buf[1] : 0;
 	stm->option2 = (port->flags & PORT_GVR_ETX) ? buf[2] : 0;
@@ -797,7 +812,7 @@ static stm32_err_t stm32_mass_erase(const stm32_t *stm)
 		return STM32_ERR_OK;
 	}
 
-	/* extended erase */
+	/* extended erase (0x44 or 0x45) */
 	buf[0] = 0xFF;	/* 0xFFFF the magic number for mass erase */
 	buf[1] = 0xFF;
 	buf[2] = 0x00;  /* checksum */
@@ -831,7 +846,7 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 	/* 0x44 is Extended Erase, a 2 byte based protocol and needs to be handled differently. */
 	/* 0x45 is clock no-stretching version of Extended Erase for I2C port. */
 	if (stm32_send_command(stm, stm->cmd->er) != STM32_ERR_OK) {
-		fprintf(stderr, "Can't initiate chip mass erase!\n");
+		fprintf(stderr, "Can't initiate chip page erase!\n");
 		return STM32_ERR_UNKNOWN;
 	}
 
@@ -843,6 +858,25 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 
 		buf[i++] = pages - 1;
 		cs ^= (pages-1);
+		/* For I2C send a checksum after the number of pages (AN4221) */
+		if (port->flags & PORT_NPAG_CSUM) {
+			buf[i++] = cs;
+			p_err = port->write(port, buf, i);
+			if (p_err != PORT_ERR_OK) {
+				fprintf(stderr, "Erase failed sending number of pages.");
+				free(buf);
+				return STM32_ERR_UNKNOWN;
+			}
+			s_err = stm32_get_ack(stm);
+			if (s_err != STM32_ERR_OK) {
+				fprintf(stderr, "Erase failed, no ack after number of pages.");
+				free(buf);
+				return STM32_ERR_UNKNOWN;
+			}
+			cs = 0;
+			i = 0;
+		}
+
 		for (pg_num = spage; pg_num < (pages + spage); pg_num++) {
 			buf[i++] = pg_num;
 			cs ^= pg_num;
@@ -851,11 +885,12 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 		p_err = port->write(port, buf, i);
 		free(buf);
 		if (p_err != PORT_ERR_OK) {
-			fprintf(stderr, "Erase failed.\n");
+			fprintf(stderr, "Erase failed sending list of pages.\n");
 			return STM32_ERR_UNKNOWN;
 		}
 		s_err = stm32_get_ack_timeout(stm, pages * STM32_PAGEERASE_TIMEOUT);
 		if (s_err != STM32_ERR_OK) {
+			fprintf(stderr, "Erase failed.\n");
 			if (port->flags & PORT_STRETCH_W)
 				stm32_warn_stretching("erase");
 			return STM32_ERR_UNKNOWN;
@@ -863,7 +898,7 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 		return STM32_ERR_OK;
 	}
 
-	/* extended erase */
+	/* extended erase (0x44 or 0x45) */
 	buf = malloc(2 + 2 * pages + 1);
 	if (!buf)
 		return STM32_ERR_UNKNOWN;
@@ -875,6 +910,24 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 	pg_byte = (pages - 1) & 0xFF;
 	buf[i++] = pg_byte;
 	cs ^= pg_byte;
+
+	if (port->flags & PORT_NPAG_CSUM) {
+		buf[i++] = cs;
+		p_err = port->write(port, buf, i);
+		if (p_err != PORT_ERR_OK) {
+			fprintf(stderr, "Extended erase failed sending number of pages.");
+			free(buf);
+			return STM32_ERR_UNKNOWN;
+		}
+		s_err = stm32_get_ack(stm);
+		if (s_err != STM32_ERR_OK) {
+			fprintf(stderr, "Extended erase failed, no ack after number of pages.");
+			free(buf);
+			return STM32_ERR_UNKNOWN;
+		}
+		cs = 0;
+		i = 0;
+	}
 
 	for (pg_num = spage; pg_num < spage + pages; pg_num++) {
 		pg_byte = pg_num >> 8;
@@ -888,13 +941,13 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 	p_err = port->write(port, buf, i);
 	free(buf);
 	if (p_err != PORT_ERR_OK) {
-		fprintf(stderr, "Page-by-page erase error.\n");
+		fprintf(stderr, "Extended erase failed sending list of pages.\n");
 		return STM32_ERR_UNKNOWN;
 	}
 
 	s_err = stm32_get_ack_timeout(stm, pages * STM32_PAGEERASE_TIMEOUT);
 	if (s_err != STM32_ERR_OK) {
-		fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
+		fprintf(stderr, "Extended erase failed. Check the maximum pages your device supports.\n");
 		if ((port->flags & PORT_STRETCH_W)
 		    && stm->cmd->er != STM32_CMD_EE_NS)
 			stm32_warn_stretching("erase");
@@ -937,10 +990,10 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t page
 
 	/*
 	 * Some device, like STM32L152, cannot erase more than 512 pages in
-	 * one command. Split the call.
+	 * one command, even 511 for STM32L082. Split the call.
 	 */
 	while (pages) {
-		n = (pages <= 512) ? pages : 512;
+		n = (pages <= 511) ? pages : 511;
 		s_err = stm32_pages_erase(stm, spage, n);
 		if (s_err != STM32_ERR_OK)
 			return s_err;

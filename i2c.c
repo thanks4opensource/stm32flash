@@ -204,7 +204,7 @@ static port_err_t i2c_flush(struct port_interface __unused *port)
 
 struct port_interface port_i2c = {
 	.name	= "i2c",
-	.flags	= PORT_STRETCH_W,
+	.flags	= PORT_STRETCH_W | PORT_NPAG_CSUM,
 	.open	= i2c_open,
 	.close	= i2c_close,
 	.flush  = i2c_flush,

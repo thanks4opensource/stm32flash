@@ -4,6 +4,7 @@
   Copyright 2011 Steve Markgraf <steve@steve-m.de>
   Copyright 2012-2016 Tormod Volden <debian.tormod@gmail.com>
   Copyright 2013-2016 Antonio Borneo <borneo.antonio@gmail.com>
+  Copyright 2021 Renaud Fivet <renaud.fivet@gmail.com>
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
@@ -43,7 +44,7 @@
 #include <windows.h>
 #endif
 
-#define VERSION "0.5"
+#define VERSION "0.7"
 
 /* device globals */
 stm32_t		*stm		= NULL;
@@ -56,7 +57,6 @@ struct port_options port_opts = {
 	.device			= NULL,
 	.baudRate		= SERIAL_BAUD_57600,
 	.serial_mode		= "8e1",
-	.no_setup		= 0,
 	.bus_addr		= 0,
 	.rx_frame_max		= STM32_MAX_RX_FRAME,
 	.tx_frame_max		= STM32_MAX_TX_FRAME,
@@ -295,6 +295,18 @@ int main(int argc, char* argv[]) {
 		}
 
 		fprintf(diag, "Using Parser : %s\n", parser->name);
+
+		/* We may know from the file how much data there is */
+		if (!use_stdinout) {
+			if (!start_addr)
+				start_addr = parser->base(p_st);
+			if (start_addr)
+				fprintf(diag, "Location     : %#08x\n", start_addr);
+
+			if (!readwrite_len)
+				readwrite_len = parser->size(p_st);
+			fprintf(diag, "Size         : %u\n", readwrite_len);
+		}
 	} else {
 		parser = &PARSER_BINARY;
 		p_st = parser->init();
@@ -348,7 +360,14 @@ int main(int argc, char* argv[]) {
 	 *	start, end, first_page, num_pages
 	 */
 	if (start_addr || readwrite_len) {
-		start = start_addr;
+		if (start_addr == 0)
+			/* default */
+			start = stm->dev->fl_start;
+		else if (start_addr == 1)
+			/* if specified to be 0 by user */
+			start = 0;
+		else
+			start = start_addr;
 
 		if (is_addr_in_flash(start))
 			end = stm->dev->fl_end;
@@ -540,6 +559,7 @@ int main(int argc, char* argv[]) {
 			uint32_t left	= end - addr;
 			len		= max_wlen > left ? left : max_wlen;
 			len		= len > size - offset ? size - offset : len;
+			unsigned int reqlen = len ;
 
 			if (parser->read(p_st, buffer, &len) != PARSER_ERR_OK)
 				goto close;
@@ -604,6 +624,8 @@ int main(int argc, char* argv[]) {
 			);
 			fflush(diag);
 
+			if( len < reqlen)	/* Last read already reached EOF */
+				break ;
 		}
 
 		fprintf(diag,	"Done.\n");
@@ -668,7 +690,7 @@ int parse_options(int argc, char *argv[])
 	int c;
 	char *pLen;
 
-	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:NjkfcChuos:S:F:i:R")) != -1) {
+	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfcChuos:S:F:i:R")) != -1) {
 		switch(c) {
 			case 'a':
 				port_opts.bus_addr = strtoul(optarg, NULL, 0);
@@ -694,10 +716,6 @@ int parse_options(int argc, char *argv[])
 					return 1;
 				}
 				port_opts.serial_mode = optarg;
-				break;
-
-			case 'N':
-				port_opts.no_setup = 1;
 				break;
 
 			case 'r':
@@ -787,6 +805,14 @@ int parse_options(int argc, char *argv[])
 					return 1;
 				} else {
 					start_addr = strtoul(optarg, &pLen, 0);
+					if (start_addr % 4 != 0) {
+						fprintf(stderr, "ERROR: Start address must be word-aligned\n");
+						return 1;
+					}
+					/* we decode 0 as 1 (which is unaligned and thus invalid anyway)
+					 * to flag that it was set by the user */
+					if (pLen != optarg && start_addr == 0)
+						start_addr = 1;
 					if (*pLen == ':') {
 						pLen++;
 						readwrite_len = strtoul(pLen, NULL, 0);
@@ -908,7 +934,6 @@ void show_help(char *name) {
 		"			*Baud rate must be kept the same as the first init*\n"
 		"			This is useful if the reset fails\n"
 		"	-R		Reset device at exit.\n"
-		"	-N		No serial port init (baud, etc).\n"
 		"	-i GPIO_string	GPIO sequence to enter/exit bootloader mode\n"
 		"			GPIO_string=[entry_seq][:[exit_seq]]\n"
 		"			sequence=[[-]signal]&|,[sequence]\n"

@@ -21,13 +21,16 @@
 
 serial_baud_t serial_get_baud(const unsigned int baud) {
 	switch(baud) {
+		case      0: return SERIAL_BAUD_KEEP  ;
 		case   1200: return SERIAL_BAUD_1200  ;
 		case   1800: return SERIAL_BAUD_1800  ;
 		case   2400: return SERIAL_BAUD_2400  ;
 		case   4800: return SERIAL_BAUD_4800  ;
 		case   9600: return SERIAL_BAUD_9600  ;
+		case  14400: return SERIAL_BAUD_14400 ;
 		case  19200: return SERIAL_BAUD_19200 ;
 		case  38400: return SERIAL_BAUD_38400 ;
+		case  56000: return SERIAL_BAUD_56000 ;
 		case  57600: return SERIAL_BAUD_57600 ;
 		case 115200: return SERIAL_BAUD_115200;
 		case 128000: return SERIAL_BAUD_128000;
@@ -38,8 +41,13 @@ serial_baud_t serial_get_baud(const unsigned int baud) {
 		case 576000: return SERIAL_BAUD_576000;
 		case 921600: return SERIAL_BAUD_921600;
 		case 1000000: return SERIAL_BAUD_1000000;
+		case 1152000: return SERIAL_BAUD_1152000;
 		case 1500000: return SERIAL_BAUD_1500000;
 		case 2000000: return SERIAL_BAUD_2000000;
+		case 2500000: return SERIAL_BAUD_2500000;
+		case 3000000: return SERIAL_BAUD_3000000;
+		case 3500000: return SERIAL_BAUD_3500000;
+		case 4000000: return SERIAL_BAUD_4000000;
 
 		default:
 			return SERIAL_BAUD_INVALID;
@@ -53,8 +61,10 @@ unsigned int serial_get_baud_int(const serial_baud_t baud) {
 		case SERIAL_BAUD_2400  : return 2400  ;
 		case SERIAL_BAUD_4800  : return 4800  ;
 		case SERIAL_BAUD_9600  : return 9600  ;
+		case SERIAL_BAUD_14400 : return 14400 ;
 		case SERIAL_BAUD_19200 : return 19200 ;
 		case SERIAL_BAUD_38400 : return 38400 ;
+		case SERIAL_BAUD_56000 : return 56000 ;
 		case SERIAL_BAUD_57600 : return 57600 ;
 		case SERIAL_BAUD_115200: return 115200;
 		case SERIAL_BAUD_128000: return 128000;
@@ -65,8 +75,13 @@ unsigned int serial_get_baud_int(const serial_baud_t baud) {
 		case SERIAL_BAUD_576000: return 576000;
 		case SERIAL_BAUD_921600: return 921600;
 		case SERIAL_BAUD_1000000: return 1000000;
+		case SERIAL_BAUD_1152000: return 1152000;
 		case SERIAL_BAUD_1500000: return 1500000;
 		case SERIAL_BAUD_2000000: return 2000000;
+		case SERIAL_BAUD_2500000: return 2500000;
+		case SERIAL_BAUD_3000000: return 3000000;
+		case SERIAL_BAUD_3500000: return 3500000;
+		case SERIAL_BAUD_4000000: return 4000000;
 
 		case SERIAL_BAUD_INVALID:
 		default:
